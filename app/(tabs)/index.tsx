@@ -1,5 +1,9 @@
 import ScreenWrapper from '@/components/ScreenWrapper';
+import Typo from '@/components/Typo';
+import Button from '@/components/ui/Button';
 import { colors, spacingX, spacingY } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from '@/libs/toast';
 import { verticalScale } from '@/utils/styling';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -9,12 +13,19 @@ const Home = () => {
   const router = useRouter();
 
   //   console.log(router);
+  const { logout } = useAuth();
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         {/* Header */}
         <Text>Test</Text>
+        <Button onPress={logout}>
+          <Typo>Log out</Typo>
+        </Button>
+        <Button onPress={() => toast.success('Test toast')}>
+          <Typo>Show toast</Typo>
+        </Button>
       </View>
     </ScreenWrapper>
   );

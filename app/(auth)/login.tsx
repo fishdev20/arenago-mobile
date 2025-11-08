@@ -8,11 +8,12 @@ import { colors, spacingX, spacingY } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { setAuthToken } from '@/libs/api';
 import { saveJWT } from '@/libs/session';
+import { toast } from '@/libs/toast';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef } from 'react';
-import { Alert, Image, ImageBackground, StyleSheet, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Login = () => {
@@ -40,34 +41,29 @@ const Login = () => {
           console.warn('No token received');
           return;
         }
+        try {
+          await WebBrowser.dismissBrowser();
+        } catch {}
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // First save the token
         await saveJWT(token);
         setAuthToken(token);
-        // Force close the browser window
-        try {
-          await WebBrowser.dismissBrowser();
-        } catch (e) {
-          console.warn('Failed to dismiss browser:', e);
-        }
-        // Small delay to ensure browser is closed
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        toast.success('Login successful!');
 
         // Navigate to main app
         // router.replace('/(tabs)');
       } catch (error) {
         console.error('Auth callback error:', error);
-        Alert.alert('Error', 'Failed to complete authentication');
+        toast.error('Login failed, please try again');
       }
     };
-
-    // Set up the event listener
     const subscription = Linking.addEventListener('url', handleUrl);
 
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, []);
 
   return (
     <ScreenWrapper>

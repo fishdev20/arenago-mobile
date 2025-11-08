@@ -7,7 +7,12 @@ const index = () => {
   const router = useRouter();
   // useEffect(() => {
   //   setTimeout(() => {
-  //     router.push('/(auth)/welcome');
+  //     const token = loadJWT();
+  //     if (!token) {
+  //       router.push('/(auth)/welcome');
+  //     } else {
+  //       router.push('/(tabs)/index');
+  //     }
   //   }, 2000);
   // }, []);
 

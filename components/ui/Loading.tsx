@@ -12,7 +12,7 @@ const Loading = ({
   color = colors.primary,
 }: ActivityIndicatorProps) => {
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View>
       <ActivityIndicator size={size} color={color} />
     </View>
   );

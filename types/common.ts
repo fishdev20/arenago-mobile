@@ -39,5 +39,17 @@ export interface InputProps extends TextInputProps {
   inputStyle?: TextStyle;
   inputRef?: React.RefObject<TextInput>;
   //   label?: string;
-  //   error?: string;
+  error?: string;
+}
+
+export type Response<T> = ErrorResponse | SuccessResponse<T>;
+
+export interface SuccessResponse<T> {
+  success: true;
+  data: T;
+}
+
+export interface ErrorResponse {
+  success: false;
+  message: string;
 }

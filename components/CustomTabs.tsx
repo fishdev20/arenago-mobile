@@ -17,22 +17,15 @@ export default function CustomTabs({
         color={isFocused ? colors.primary : colors.neutral400}
       />
     ),
-    statistic: (isFocused: boolean) => (
-      <Icons.ChartBarIcon
+    list: (isFocused: boolean) => (
+      <Icons.ListMagnifyingGlass
         size={verticalScale(30)}
         weight={isFocused ? 'fill' : 'regular'}
         color={isFocused ? colors.primary : colors.neutral400}
       />
     ),
-    wallet: (isFocused: boolean) => (
-      <Icons.WalletIcon
-        size={verticalScale(30)}
-        weight={isFocused ? 'fill' : 'regular'}
-        color={isFocused ? colors.primary : colors.neutral400}
-      />
-    ),
-    profile: (isFocused: boolean) => (
-      <Icons.UserIcon
+    explore: (isFocused: boolean) => (
+      <Icons.HouseIcon
         size={verticalScale(30)}
         weight={isFocused ? 'fill' : 'regular'}
         color={isFocused ? colors.primary : colors.neutral400}

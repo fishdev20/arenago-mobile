@@ -1,13 +1,24 @@
-import { api, API_BASE, setAuthToken } from '@/libs/api';
+import { setAuthToken } from '@/libs/api';
 import { decodeJWT } from '@/libs/jwt';
 import { clearJWT, loadJWT, saveJWT } from '@/libs/session';
-import { User } from '@/services/auth';
+import { toast } from '@/libs/toast';
+import { API_BASE } from '@/services/api';
+import { UserService } from '@/services/user';
+import { User } from '@/types/user';
 import * as AuthSession from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { Platform } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type AuthState = {
   user?: User;
@@ -16,7 +27,6 @@ type AuthState = {
 type AuthCtx = AuthState & {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  refreshMe: () => Promise<void>;
 };
 const Ctx = createContext<AuthCtx>(null as any);
 export const useAuth = () => useContext(Ctx);
@@ -30,33 +40,63 @@ export default function AuthProvider({
   const [loading, setLoading] = useState<AuthState['loading']>(true);
 
   const router = useRouter();
+  const userService = new UserService();
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
-      const token = await loadJWT();
-      console.log('token from storage', token);
-      if (token) {
-        setAuthToken(token);
-        const decoded = decodeJWT(token);
-        const userId = decoded.sub;
-        const userInfo = await getUserInfo(userId);
-        console.log(userInfo, 'user info');
-        const isSetup = !!(
-          userInfo.firstName &&
-          userInfo.lastName &&
-          userInfo.country
-        );
-        if (!isSetup) {
-          router.replace('/(setup)');
-          return;
+      try {
+        const token = await loadJWT();
+        if (!mounted) return;
+
+        if (token) {
+          setAuthToken(token);
+          let decoded: { sub?: string } | undefined;
+          try {
+            decoded = decodeJWT(token);
+          } catch {
+            // Bad token -> clear and go to auth
+            await clearJWT();
+            setAuthToken(undefined);
+            if (mounted) router.replace('/(auth)/welcome');
+            return;
+          }
+
+          const userId = decoded?.sub;
+          if (!userId) {
+            await clearJWT();
+            setAuthToken(undefined);
+            if (mounted) router.replace('/(auth)/welcome');
+            return;
+          }
+
+          const info = await userService.getUserInfo(userId);
+          if (!mounted) return;
+
+          setUser(info);
+          console.log(info);
+
+          if (!isUserSetup(info)) {
+            router.replace('/(setup)');
+          } else {
+            router.replace('/(tabs)');
+          }
+        } else {
+          router.replace('/(auth)/welcome');
         }
-        router.replace('/(tabs)');
-      } else {
+      } catch (e) {
+        // Optional: log or show a soft error
+        console.warn('Auth bootstrap failed:', e);
         router.replace('/(auth)/welcome');
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     })();
-  }, [router]);
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loginWithGoogle() {
     const redirect =
@@ -66,12 +106,13 @@ export default function AuthProvider({
             scheme: 'clair',
             preferLocalhost: false,
           })
-        : `${window.location.origin}/auth-callback`; // must match exactly
+        : `${window.location.origin}/auth-callback`;
     try {
       setLoading(true);
       const authUrl = `${API_BASE}/auth/google?redirect=${encodeURIComponent(redirect)}`;
       if (Platform.OS === 'web') {
         window.location.href = authUrl;
+        return;
         // router.replace('/(tabs)');
       } else {
         const result = await WebBrowser.openAuthSessionAsync(
@@ -91,13 +132,9 @@ export default function AuthProvider({
             setAuthToken(token);
             const decoded = decodeJWT(token);
             const userId = decoded.sub;
-            const userInfo = await getUserInfo(userId);
-            const isSetup = !!(
-              userInfo.firstName &&
-              userInfo.lastName &&
-              userInfo.country
-            );
 
+            const userInfo = await userService.getUserInfo(userId);
+            const isSetup = isUserSetup(userInfo);
             if (!isSetup) {
               router.replace('/(setup)');
               return;
@@ -111,34 +148,27 @@ export default function AuthProvider({
       }
     } catch (e: any) {
       setLoading(false);
-      Alert.alert('Login failed', e?.message ?? 'Something went wrong');
+      toast.error('Login failed, please try again');
+      router.replace('/(auth)/welcome');
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function refreshMe() {
-    console.log(`${API_BASE}/auth/me`);
-    const me = await api.get(`${API_BASE}/user/me`).then((r) => r.data);
-    console.log(me);
-    setUser(me.user);
+  function isUserSetup(user: User) {
+    return !!(user.firstName && user.lastName && user.country);
   }
-
-  async function getUserInfo(id: string) {
-    const res = await api.get(`${API_BASE}/user/${id}`).then((r) => r.data);
-    const userInfo = res.data;
-    setUser(userInfo);
-    return userInfo;
-  }
-
   async function logout() {
     await clearJWT();
     setAuthToken(undefined);
-    setUser(null);
+    setUser(undefined);
+    router.replace('/(auth)/welcome');
   }
   // logout();
 
-  return (
-    <Ctx.Provider value={{ user, loading, loginWithGoogle, logout, refreshMe }}>
-      {children}
-    </Ctx.Provider>
+  const value = useMemo(
+    () => ({ user, loading, loginWithGoogle, logout }),
+    [user, loading],
   );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
